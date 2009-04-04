@@ -1,0 +1,393 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=windows-1250">
+  <meta name="generator" content="PSPad editor, www.pspad.com">
+  <title></title>
+  <style type="text/css">
+    canvas#tetris{
+      position:absolute;
+      margin:-202px 0px 0px -121px;
+      left:50%;
+      top:50%;
+      border:3px solid black;
+    }
+  </style>
+  <script type="text/javascript" src="canvas.js"></script>
+  <script type="text/javascript">
+    // Utilities
+    function addAlpha(rgb,alpha){ // Takes rgb value and adds alpha channel
+      var rgbVals=rgb.slice(4,rgb.length-1);
+      var rgba="rgba("+rgbVals+","+alpha+")";
+      return rgba;
+    }
+    function rand(l,u){ // lower bound and upper bound
+      return Math.floor((Math.random() * (u-l+1))+l);
+    }
+    
+    window.onload=function(){
+      // Variables
+      var frameTimer=setInterval(frame,500);
+      var curHeight=0; // Current shape's height from the bottom - Y-offset
+      var curOffset=3; // Current shape's offset from the left - X-offset
+      var curShape; // Current falling shape name
+      var curShapeCoords=[]; // Current coordinates of the falling shape
+      var curColor; // Current color of the falling shape
+      var curColorCycle=0; // Current stage of the color cycle
+      var curRotation=0; // Current stage of rotation;
+      var tetris = new canvas('tetris');
+      
+      tetris.block=function(x,y,color){ // Constructs the small beveled blocks
+        // Main square
+        tetris.rect(x,y+1,24,24,color,"rgb(0,0,0)");
+        
+        // Light Bevel Effects
+        tetris.rect(x+1,y+2,23,2,"rgba(255,255,255,0.45)"); // top
+        tetris.rect(x+22,y+4,2,20,"rgba(255,255,255,0.45)"); // right
+        
+        // Dark Bevel Effects
+        tetris.rect(x+1,y+3,2,21,"rgba(0,0,0,0.25)"); // left
+        tetris.rect(x+3,y+22,20,2,"rgba(0,0,0,0.25)"); // bottom
+      }
+      
+      function rotate(){
+        curRotation+=90;
+        if(curRotation===360) curRotation=0;
+        
+        // Don't worry about rotating sqaures
+        if(curShape==="SQ"){
+          return false;
+        }
+
+        
+        else{
+          var points=[];
+          for(var x=0;x<4;x++){
+            for(var y=0;y<4;y++){
+              if(shapes[curShape][x][y]===1){
+                points[points.length]=[x,y];
+                shapes[curShape][x][y]=0;
+              }
+            }
+          }
+          for(var i in points){
+            if(curRotation===0){
+              if(grid[points[i][1]+curOffset]===undefined) return false;
+              else if(grid[points[i][1]+curOffset][points[i][0]+curHeight]!==0){
+                for(var i2 in points){
+                  shapes[curShape][points[i2][0]][points[i2][1]]=1;
+                }
+                curRotation=270;
+                return false;
+              }
+              else shapes[curShape][points[i][1]][points[i][0]]=1;
+            }
+            else if(curRotation===270){
+              if(grid[2-points[i][1]]===undefined) return false;
+              else if(grid[(2-points[i][1])+curOffset][(points[i][0])+curHeight]!==0){
+                for(var i2 in points){
+                  shapes[curShape][points[i2][0]][points[i2][1]]=1;
+                }
+                curRotation=180;
+                return false;
+              }
+              else shapes[curShape][2-points[i][1]][points[i][0]]=1;
+            }
+            else if(curRotation===90){
+              if(grid[(2-points[i][1])+curOffset]===undefined) return false;
+              else if(grid[(2-points[i][1])+curOffset][(2-points[i][0])+curHeight]!==0){
+                for(var i2 in points){
+                  //alert(points[i2][0]+","+points[i2][1]);
+                  shapes[curShape][points[i2][0]][points[i2][1]]=1;
+                }
+                curRotation=0;
+                return false;
+              }
+              else shapes[curShape][2-points[i][1]][2-points[i][0]]=1;
+            }
+            else if(curRotation===180){
+              if(grid[points[i][1]]===undefined) return false;
+              else if(grid[points[i][1]+curOffset][points[i][0]+curHeight]!==0){
+                for(var i2 in points){
+                  shapes[curShape][points[i2][0]][points[i2][1]]=1;
+                }
+                curRotation=90;
+                return false;
+              }
+              else shapes[curShape][points[i][1]][points[i][0]]=1;
+            }
+          }
+        }
+      }
+      
+      function shapeToGrid(){
+        for(var x=0;x<4;x++){
+          for(var y=0;y<4;y++){
+            if(shapes[curShape][x][y]===1){
+              grid[x+curOffset][y+curHeight]=curColor;
+            }
+          }
+        }
+      }
+      
+      function eraseShape(){
+        for(var x=0;x<4;x++){
+          for(var y=0;y<4;y++){
+            if(shapes[curShape][x][y]===1){
+              grid[x+curOffset][y+curHeight]=0;
+            }
+          }
+        }
+      }
+      
+      // Grid of 'tiles' on the tetris board
+      var grid=[];
+      for(var x=0;x<10;x++){
+        grid[x]=[];
+        for(var y=0;y<17;y++){
+          grid[x][y]=0;
+        }
+      }
+
+      function render(){
+        tetris.clear();
+        for(var x=0;x<10;x++){
+          for(var y=0;y<17;y++){
+            if(grid[x][y]!==0){
+              tetris.block(x*25,(y-1)*25,grid[x][y]);
+            }
+          }
+        }
+      }
+      
+      function checkCollision(){
+        for(var y=3;y>=0;y--){
+          for(var x=3;x>=0;x--){
+            if(shapes[curShape][x][y]===1){
+              if(grid[x+curOffset][y+curHeight+1]!==0){
+                if(shapes[curShape][x][y+1]!==1){
+                  newshape();render();return true;
+                }
+              }
+            }
+          }
+        }
+        return false;
+      }
+      
+      // Prepare arrays for representation of each shape, in 4x2 grid
+      var shapes = [];
+      shapes['Lr']=[]; // L-right
+      shapes['Ll']=[]; // L-left
+      shapes['S']=[]; // S
+      shapes['Z']=[]; // Z (backwards S)
+      shapes['T']=[]; // T
+      shapes['I']=[]; // I
+      shapes['SQ']=[]; // Square
+      
+      for(var i in shapes){ // Sets up 4x4 grid for each
+        for(var x=0;x<4;x++){
+          shapes[i][x]=[];
+          for(var y=0;y<4;y++){
+            shapes[i][x][y]=0;
+          }
+        }
+      }
+      
+      // Set up the representation
+      shapes['Lr'][0][0]=1;
+      shapes['Lr'][1][0]=1;
+      shapes['Lr'][2][0]=1;
+      shapes['Lr'][2][1]=1;
+      
+      shapes['Ll'][0][0]=1;
+      shapes['Ll'][0][1]=1;
+      shapes['Ll'][1][0]=1;
+      shapes['Ll'][2][0]=1;
+      
+      shapes['S'][1][0]=1;
+      shapes['S'][2][0]=1;
+      shapes['S'][0][1]=1;
+      shapes['S'][1][1]=1;
+      
+      shapes['Z'][0][0]=1;
+      shapes['Z'][1][0]=1;
+      shapes['Z'][1][1]=1;
+      shapes['Z'][2][1]=1;
+      
+      shapes['T'][0][0]=1;
+      shapes['T'][1][0]=1;
+      shapes['T'][2][0]=1;
+      shapes['T'][1][1]=1;
+      
+      shapes['I'][0][0]=1;
+      shapes['I'][1][0]=1;
+      shapes['I'][2][0]=1;
+      shapes['I'][3][0]=1;
+      
+      shapes['SQ'][1][0]=1;
+      shapes['SQ'][1][1]=1;
+      shapes['SQ'][2][0]=1;
+      shapes['SQ'][2][1]=1;
+
+      function gameover(){
+        clearTimeout(frameTimer);
+        alert("Game Over!");
+      }
+      
+      function frame(){
+        // Check to to see if its going to hit something
+        if(checkCollision()===true) return false;
+
+        // Erase Old
+        eraseShape();
+        // Draw new one
+        curHeight++;
+        shapeToGrid();
+        render();
+      }
+      
+      newshape();frame();
+      
+      function newshape(){
+      
+        // Reset some variables
+        curHeight=0;
+        curOffset=3;
+        curColorCycle++;
+        curRotation=0;
+        
+        // Randomly select shape (I-shape is half as likely as any others)
+        var shapeRand=rand(1,13);
+        if(shapeRand===1 || shapeRand===2) curShape="Lr";
+        else if(shapeRand===3 || shapeRand===4) curShape="Ll";
+        else if(shapeRand===5 || shapeRand===6) curShape="S";
+        else if(shapeRand===7 || shapeRand===8) curShape="Z";
+        else if(shapeRand===9 || shapeRand===10) curShape="T";
+        else if(shapeRand===11 || shapeRand===12) curShape="SQ";
+        else if(shapeRand===13) curShape="I";
+        
+        // Cycle through colors
+        if(curColorCycle===3) curColorCycle=0
+        var colorArray=["rgb(0,0,255)","rgb(255,0,0)","rgb(0,255,0)"];
+        curColor=colorArray[curColorCycle];
+        
+        // Check if blocked
+        if(grid[4][1]!==0 || grid[5][1]!==0){
+          gameover();return false;
+        }
+        else if(curShape==="I" && grid[6][1]!==0){
+          gameover();return false;
+        }
+        else if(curShape!=="SQ" && grid[3][1]!==0){
+          gameover();return false;
+        }
+        
+        shapeToGrid();
+      }
+
+      // Keypress handling
+      function onKeyDown(evt) {
+        if(evt.keyCode===39){
+          var rightDown=true;
+          // Make sure it doesn't hit a wall
+          for(var y=1;y>=0;y--){
+            for(var x=3;x>=0;x--){
+              if(shapes[curShape][x][y]===1){
+                if(grid[x+curOffset+1]===undefined){
+                  return false;
+                }
+              }
+            }
+          }
+          for(var y=1;y>=0;y--){
+            for(var x=3;x>=2;x--){
+              if(shapes[curShape][x][y]===1){
+                if(grid[x+curOffset+1][y+curHeight]!==0){
+                  if(shapes[curShape][x+1]!==undefined){
+                    if(shapes[curShape][x+1][y]!==1){
+                      return false;
+                    }
+                  }
+                  else{
+                    return false;
+                  }
+                }
+              }
+            }
+          }
+          
+          eraseShape();
+          curOffset++;
+          shapeToGrid();
+          render();
+        }
+        else if(evt.keyCode===37){
+          var leftDown=true;
+          // Make sure it doesn't hit a wall
+        for(var x=0;x<4;x++){
+          for(var y=0;y<2;y++){
+              if(shapes[curShape][x][y]===1){
+                if(grid[x+curOffset-1]===undefined){
+                  return false;
+                }
+              }
+            }
+          }
+        for(var x=0;x<4;x++){
+          for(var y=0;y<4;y++){
+              if(shapes[curShape][x][y]===1){
+                if(grid[x+curOffset-1][y+curHeight]!==0){
+                  if(shapes[curShape][x-1]!==undefined){
+                    if(shapes[curShape][x-1][y]!==1){
+                      return false;
+                    }
+                  }
+                  else{
+                    return false;
+                  }
+                }
+              }
+            }
+          }
+          
+          eraseShape();
+          curOffset--;
+          shapeToGrid();
+          render();
+        }
+        else if(evt.keyCode===40){
+          var downDown=true;
+          if(checkCollision()===true) return false;
+          eraseShape();
+          curHeight++;
+          shapeToGrid();
+          render();
+        }
+      }
+      function onKeyUp(evt) {
+        if(evt.keyCode===39) var rightDown=false;
+        else if(evt.keyCode===37) var leftDown=false;
+        else if(evt.keyCode===38) var downDown=false;
+        else if(evt.keyCode===40) var upDown=false;
+      }
+      function onKeyPress(evt){
+        if(evt.keyCode===38){
+          eraseShape();
+          rotate();
+          shapeToGrid();
+          render();
+        }
+      }
+      
+      document.addEventListener("keypress",onKeyPress,false);
+      document.addEventListener("keydown",onKeyDown,false);
+      document.addEventListener("keyup",onKeyUp,false);
+
+    }
+  </script>
+  </head>
+  <body>
+    <canvas id="tetris" width="249" height="400"></canvas>
+  </body>
+</html>
